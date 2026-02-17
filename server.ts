@@ -12,6 +12,7 @@ import { Memory } from "./core/memory";
 import { LLM } from "./core/llm";
 import { Executor } from "./core/executor";
 import { createMessage } from "./core/message";
+import { TenantManager } from "./core/tenant";
 
 import { OrchestratorAgent } from "./agents/orchestrator";
 import { ResearcherAgent } from "./agents/researcher";
@@ -48,6 +49,9 @@ const executor = new Executor();
 const bus = new MessageBus();
 
 await memory.init();
+
+const tenantManager = new TenantManager(join(ROOT, "data", "tenants"));
+await tenantManager.init();
 
 const orchestrator = new OrchestratorAgent(llm, bus, memory);
 const researcher = new ResearcherAgent(llm);
@@ -271,6 +275,106 @@ app.post("/api/integrations/build", async (c) => {
   await publisher.reload();
 
   return c.json(result.payload);
+});
+
+// Tenants
+app.get("/api/tenants", (c) => {
+  return c.json({
+    tenants: tenantManager.list().map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      brand: t.brand,
+      platforms: Object.keys(t.platforms || {}),
+      settings: t.settings,
+      createdAt: t.createdAt,
+    })),
+  });
+});
+
+app.post("/api/tenants", async (c) => {
+  const body = await c.req.json();
+  if (!body.name) return c.json({ error: "name is required" }, 400);
+  const tenant = await tenantManager.create(body);
+  return c.json({ tenant });
+});
+
+app.get("/api/tenants/:id", (c) => {
+  const tenant = tenantManager.get(c.req.param("id")) || tenantManager.getBySlug(c.req.param("id"));
+  if (!tenant) return c.json({ error: "Tenant not found" }, 404);
+  return c.json({ tenant });
+});
+
+app.put("/api/tenants/:id", async (c) => {
+  const body = await c.req.json();
+  const tenant = await tenantManager.update(c.req.param("id"), body);
+  if (!tenant) return c.json({ error: "Tenant not found" }, 404);
+  return c.json({ tenant });
+});
+
+app.delete("/api/tenants/:id", async (c) => {
+  const deleted = await tenantManager.delete(c.req.param("id"));
+  return c.json({ deleted });
+});
+
+// Tenant-specific generate
+app.post("/api/tenants/:id/generate", async (c) => {
+  const tenantId = c.req.param("id");
+  const tenant = tenantManager.get(tenantId) || tenantManager.getBySlug(tenantId);
+  if (!tenant) return c.json({ error: "Tenant not found" }, 404);
+
+  const body = await c.req.json();
+  const { topic, type } = body;
+  if (!topic) return c.json({ error: "topic is required" }, 400);
+
+  const contentType = type || tenant.settings.defaultType;
+  const platforms = body.platforms || tenant.settings.platforms;
+
+  let request = "";
+  if (contentType === "blog") {
+    request = `Write a blog about: ${topic}`;
+  } else if (contentType === "social") {
+    request = `Create social media posts about: ${topic}`;
+  } else {
+    request = `Write a blog about: ${topic}, then create social media posts`;
+  }
+  if (platforms?.length) request += `. Publish to: ${platforms.join(", ")}`;
+
+  // Inject brand guidelines
+  const brandGuidelines = tenantManager.getBrandGuidelines(tenantId);
+  if (brandGuidelines) {
+    request = `[BRAND CONTEXT]\n${brandGuidelines}\n[END BRAND CONTEXT]\n\n${request}`;
+  }
+
+  const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const job: Job = {
+    id: jobId,
+    status: "running",
+    request,
+    type: contentType,
+    createdAt: new Date().toISOString(),
+    steps: [],
+  };
+  jobs.set(jobId, job);
+
+  (async () => {
+    try {
+      const msg = createMessage("api", "orchestrator", "task", {
+        action: "orchestrate",
+        input: { request },
+      });
+      const result = await bus.send(msg);
+      job.status = result.type === "result" ? "done" : "error";
+      job.result = result.payload?.output;
+      job.error = result.type === "error" ? result.payload?.message : undefined;
+    } catch (err: any) {
+      job.status = "error";
+      job.error = err.message;
+    }
+    job.completedAt = new Date().toISOString();
+  })();
+
+  return c.json({ jobId, tenantId: tenant.id, status: "running" });
 });
 
 // Scheduler
