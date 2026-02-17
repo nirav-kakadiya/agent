@@ -24,6 +24,7 @@ import { SkillBuilderAgent } from "./agents/skill-builder";
 import { SocialWriterAgent } from "./agents/social-writer";
 import { BrandManagerAgent } from "./agents/brand-manager";
 import { SchedulerAgent } from "./agents/scheduler";
+import { AnalyticsAgent } from "./agents/analytics";
 
 const ROOT = import.meta.dir || __dirname;
 
@@ -78,8 +79,10 @@ bus.register(publisher);
 bus.register(skillBuilder);
 bus.register(socialWriter);
 bus.register(brandManager);
+const analytics = new AnalyticsAgent(memory);
 await scheduler.init();
 bus.register(scheduler);
+bus.register(analytics);
 
 // Start scheduler ticker — auto-generates content when jobs are due
 scheduler.startTicker(async (job) => {
@@ -467,6 +470,36 @@ app.get("/api/calendar", async (c) => {
   });
   const result = await bus.send(msg);
   return c.json(result.payload?.output || { calendar: [] });
+});
+
+// Analytics
+app.post("/api/analytics/track", async (c) => {
+  const body = await c.req.json();
+  const msg = createMessage("api", "analytics", "task", { action: "track", input: body });
+  const result = await bus.send(msg);
+  return c.json(result.payload?.output || {});
+});
+
+app.get("/api/analytics/report", async (c) => {
+  const days = parseInt(c.req.query("days") || "30");
+  const platform = c.req.query("platform");
+  const msg = createMessage("api", "analytics", "task", { action: "report", input: { days, platform } });
+  const result = await bus.send(msg);
+  return c.json(result.payload?.output || {});
+});
+
+app.get("/api/analytics/insights", async (c) => {
+  const msg = createMessage("api", "analytics", "task", { action: "insights", input: {} });
+  const result = await bus.send(msg);
+  return c.json(result.payload?.output || {});
+});
+
+app.get("/api/analytics/top", async (c) => {
+  const limit = parseInt(c.req.query("limit") || "5");
+  const metric = c.req.query("metric") || "views";
+  const msg = createMessage("api", "analytics", "task", { action: "top-content", input: { limit, metric } });
+  const result = await bus.send(msg);
+  return c.json(result.payload?.output || {});
 });
 
 // Brand management

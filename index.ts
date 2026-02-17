@@ -18,6 +18,7 @@ import { SkillBuilderAgent } from "./agents/skill-builder";
 import { SocialWriterAgent } from "./agents/social-writer";
 import { BrandManagerAgent } from "./agents/brand-manager";
 import { SchedulerAgent } from "./agents/scheduler";
+import { AnalyticsAgent } from "./agents/analytics";
 
 const ROOT = import.meta.dir || __dirname;
 
@@ -78,8 +79,10 @@ async function main() {
   bus.register(skillBuilder);
   bus.register(socialWriter);
   bus.register(brandManager);
+  const analytics = new AnalyticsAgent(memory);
   await scheduler.init();
   bus.register(scheduler);
+  bus.register(analytics);
 
   // --- Add logging middleware ---
   bus.use(async (message, next) => {
