@@ -57,12 +57,13 @@ export class SocialWriterAgent extends BaseAgent {
     const task = message.payload as TaskPayload;
     const action = task.action || "blog-to-social";
 
-    // Get brand voice from memory
+    // Get brand guidelines (injected by orchestrator) or fall back to memory
+    const brandGuidelines = task.input._brandGuidelines || "";
     const brandVoice = this.memory.get("brand_voice") || "";
     const tonePrefs = this.memory.get("social_tone") || "";
-    const voiceContext = brandVoice || tonePrefs
-      ? `\nBrand voice: ${brandVoice}\nSocial tone: ${tonePrefs}`
-      : "";
+    const voiceContext = brandGuidelines
+      ? `\n${brandGuidelines}`
+      : (brandVoice || tonePrefs ? `\nBrand voice: ${brandVoice}\nSocial tone: ${tonePrefs}` : "");
 
     if (action === "write-thread") {
       return this.writeThread(message, task, voiceContext);

@@ -16,6 +16,7 @@ import { EditorAgent } from "./agents/editor";
 import { PublisherAgent } from "./agents/publisher";
 import { SkillBuilderAgent } from "./agents/skill-builder";
 import { SocialWriterAgent } from "./agents/social-writer";
+import { BrandManagerAgent } from "./agents/brand-manager";
 
 const ROOT = import.meta.dir || __dirname;
 
@@ -63,6 +64,7 @@ async function main() {
   }
   const skillBuilder = new SkillBuilderAgent(llm, executor, integrationsDir);
   const socialWriter = new SocialWriterAgent(llm, memory);
+  const brandManager = new BrandManagerAgent(llm, memory);
 
   await publisher.init();
 
@@ -73,6 +75,7 @@ async function main() {
   bus.register(publisher);
   bus.register(skillBuilder);
   bus.register(socialWriter);
+  bus.register(brandManager);
 
   // --- Add logging middleware ---
   bus.use(async (message, next) => {

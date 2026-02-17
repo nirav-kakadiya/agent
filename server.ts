@@ -20,6 +20,7 @@ import { EditorAgent } from "./agents/editor";
 import { PublisherAgent } from "./agents/publisher";
 import { SkillBuilderAgent } from "./agents/skill-builder";
 import { SocialWriterAgent } from "./agents/social-writer";
+import { BrandManagerAgent } from "./agents/brand-manager";
 
 const ROOT = import.meta.dir || __dirname;
 
@@ -54,6 +55,7 @@ const editor = new EditorAgent(llm);
 const publisher = new PublisherAgent(executor, integrationsDir, outputDir);
 const skillBuilder = new SkillBuilderAgent(llm, executor, integrationsDir);
 const socialWriter = new SocialWriterAgent(llm, memory);
+const brandManager = new BrandManagerAgent(llm, memory);
 
 await publisher.init();
 
@@ -64,6 +66,7 @@ bus.register(editor);
 bus.register(publisher);
 bus.register(skillBuilder);
 bus.register(socialWriter);
+bus.register(brandManager);
 
 // Load credentials
 for (const [key, value] of Object.entries(process.env)) {
@@ -239,6 +242,46 @@ app.post("/api/integrations/build", async (c) => {
   await publisher.reload();
 
   return c.json(result.payload);
+});
+
+// Brand management
+app.get("/api/brand", async (c) => {
+  const msg = createMessage("api", "brand-manager", "task", {
+    action: "get-brand-context",
+    input: { brandName: c.req.query("name") || "default" },
+  });
+  const result = await bus.send(msg);
+  return c.json(result.payload?.output || {});
+});
+
+app.post("/api/brand", async (c) => {
+  const body = await c.req.json();
+  const msg = createMessage("api", "brand-manager", "task", {
+    action: "set-brand",
+    input: body,
+  });
+  const result = await bus.send(msg);
+  return c.json(result.payload?.output || {});
+});
+
+app.post("/api/brand/feedback", async (c) => {
+  const body = await c.req.json();
+  const msg = createMessage("api", "brand-manager", "task", {
+    action: "learn-from-feedback",
+    input: body,
+  });
+  const result = await bus.send(msg);
+  return c.json(result.payload?.output || {});
+});
+
+app.post("/api/brand/analyze", async (c) => {
+  const body = await c.req.json();
+  const msg = createMessage("api", "brand-manager", "task", {
+    action: "analyze-sample",
+    input: body,
+  });
+  const result = await bus.send(msg);
+  return c.json(result.payload?.output || {});
 });
 
 // Memory

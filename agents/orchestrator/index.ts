@@ -40,6 +40,21 @@ export class OrchestratorAgent extends BaseAgent {
     const plan = await this.createPlan(request);
     console.log(`📋 Plan:\n${JSON.stringify(plan, null, 2)}\n`);
 
+    // Step 1.5: Fetch brand context if brand-manager exists
+    let brandGuidelines = "";
+    const brandManager = this.bus.getAgent("brand-manager");
+    if (brandManager) {
+      const brandMsg = createMessage(this.name, "brand-manager", "task", {
+        action: "get-brand-context",
+        input: {},
+      });
+      const brandResult = await this.bus.send(brandMsg);
+      if (brandResult.type === "result" && brandResult.payload?.output?.guidelines) {
+        brandGuidelines = brandResult.payload.output.guidelines;
+        console.log("🎨 Brand context loaded");
+      }
+    }
+
     // Step 2: Execute plan step by step
     const results: any[] = [];
     let previousOutput: any = null;
@@ -64,6 +79,11 @@ export class OrchestratorAgent extends BaseAgent {
       if (!input.title && input.content) {
         const titleMatch = input.content.match(/^#\s+(.+)$/m);
         if (titleMatch) input.title = titleMatch[1];
+      }
+
+      // Inject brand guidelines for writing/editing/social agents
+      if (brandGuidelines && ["writer", "editor", "social-writer"].includes(step.agent)) {
+        input._brandGuidelines = brandGuidelines;
       }
 
       // Send task to the agent via the bus

@@ -36,7 +36,8 @@ export class WriterAgent extends BaseAgent {
   async handle(message: Message): Promise<Message> {
     const task = message.payload as TaskPayload;
 
-    // Check memory for brand voice / style preferences
+    // Check for brand guidelines (injected by orchestrator) or fall back to memory
+    const brandGuidelines = task.input._brandGuidelines || "";
     const brandVoice = this.memory.get("brand_voice") || "professional yet approachable";
     const pastLearnings = this.memory.byAgent(this.name).slice(-5);
     const contextFromMemory = pastLearnings.length
@@ -54,7 +55,7 @@ export class WriterAgent extends BaseAgent {
         role: "system",
         content: `You are an expert content writer. Write engaging, well-structured content.
 
-Brand voice: ${brandVoice}
+${brandGuidelines || `Brand voice: ${brandVoice}`}
 ${contextFromMemory}
 
 Guidelines:
