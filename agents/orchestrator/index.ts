@@ -54,8 +54,16 @@ export class OrchestratorAgent extends BaseAgent {
         if (previousOutput.findings) input.research = previousOutput.findings;
         if (previousOutput.content) input.content = previousOutput.content;
         if (previousOutput.editedContent) input.content = previousOutput.editedContent;
-        if (previousOutput.title) input.title = previousOutput.title;
+        if (previousOutput.optimizedContent) input.content = previousOutput.optimizedContent;
+        if (previousOutput.title && !input.title) input.title = previousOutput.title;
         if (previousOutput.post) input.content = previousOutput.post;
+        if (previousOutput.summary) input.summary = previousOutput.summary;
+      }
+
+      // Extract title from content if not set
+      if (!input.title && input.content) {
+        const titleMatch = input.content.match(/^#\s+(.+)$/m);
+        if (titleMatch) input.title = titleMatch[1];
       }
 
       // Send task to the agent via the bus

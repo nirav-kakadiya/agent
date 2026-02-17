@@ -1,0 +1,7 @@
+{
+  "name": "local-file",
+  "description": "Saves content as markdown/HTML files locally. Always available, no API key needed.",
+  "code": "async function execute(input, credentials) {\n  const { action, title, content, format } = input;\n  \n  if (action === 'publish' || action === 'save') {\n    const slug = (title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');\n    const date = new Date().toISOString().split('T')[0];\n    const filename = `${date}-${slug}`;\n    \n    // Return the content to be saved (executor will handle file I/O)\n    return {\n      success: true,\n      data: {\n        filename,\n        title,\n        content,\n        format: format || 'markdown',\n        savedAt: new Date().toISOString()\n      }\n    };\n  }\n  \n  return { success: false, error: `Unknown action: ${action}` };\n}",
+  "requirements": [],
+  "createdAt": "2026-02-17T10:00:00Z"
+}

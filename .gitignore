@@ -1,5 +1,6 @@
 node_modules/
 .env
 memory/memory.json
+output/
 bun.lockb
 *.log

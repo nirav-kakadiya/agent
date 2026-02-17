@@ -50,7 +50,16 @@ async function main() {
   const researcher = new ResearcherAgent(llm);
   const writer = new WriterAgent(llm, memory);
   const editor = new EditorAgent(llm);
-  const publisher = new PublisherAgent(executor, integrationsDir);
+  const outputDir = join(ROOT, "output");
+  const publisher = new PublisherAgent(executor, integrationsDir, outputDir);
+
+  // Load credentials from environment
+  const credentialPrefixes = ["WORDPRESS_", "TWITTER_", "LINKEDIN_", "GITHUB_"];
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value && credentialPrefixes.some((p) => key.startsWith(p))) {
+      executor.setCredential(key, value);
+    }
+  }
   const skillBuilder = new SkillBuilderAgent(llm, executor, integrationsDir);
 
   await publisher.init();
